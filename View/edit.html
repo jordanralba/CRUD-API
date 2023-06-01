@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Restful CRUD API</title>
+        <link async="true" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">        
+        <link async="true" rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <!--<div class="row">
+            <div class="col-sm-4"><label>CRUD Action</label></div>
+            <div class="col-sm-4"><select id="crud_action">
+                <option></option>
+                <option value="update">Update</option>
+            </select></div>
+            <div class="col-sm-4 error-message" id="crud_action-error"></div>
+        </div>-->
+        <script>
+        const isEmpty = (obj) => Object.keys(obj).length === 0;
+        const queryParams = new URLSearchParams(window.location.search);
+        const divNode = document.createElement('div');
+        const headerNode = document.createElement('h1');
+        const inputNode = document.createElement('input');
+        const labelNode = document.createElement('label');
+        const selectNode = document.createElement('select');
+        const buttonN = document.createElement('button');
+        const rowNode = divNode.cloneNode(true);
+            rowNode.setAttribute('class', 'row');
+        const colNode = divNode.cloneNode(true);
+            colNode.setAttribute('class', 'col-sm-12');
+        const headerRow = rowNode.cloneNode(true);
+        const headerCol = colNode.cloneNode(true);
+        const header = headerNode.cloneNode(true);
+            header.setAttribute('class', 'form-header');
+            header.innerHTML = 'Update Account Information';
+            headerCol.appendChild(header.cloneNode(true));
+            headerRow.appendChild(headerCol.cloneNode(true));
+            document.body.appendChild(headerRow);
+        const errorBan = divNode.cloneNode(true);
+            errorBan.setAttribute('id', 'error-banner');
+            errorBan.style.opacity = 0;
+            document.body.appendChild(errorBan);
+        const display = divNode.cloneNode(true);
+            display.setAttribute('id', 'display');
+        let testArray = [],
+            testObject = {},
+            iterVal = 0;
+        
+        const createTable = (input, target, prEttyLabels, valueValues) => {
+            console.log(input);
+            let displayTable = '<table>' +
+                        '<thead>' +
+                        '<tr>';
+                            for(label of prEttyLabels){
+                               displayTable += '<th >'+label+'</th>';
+                            }
+                        displayTable += '<th >Actions</th>' +
+                        '</tr>' +
+                        '</thead>' +
+                        '<tbody>';
+                        
+                        if (typeof input.data !== 'undefined') {
+                        for (row of input.data) {
+                            const rowdata = Object.entries(row);
+                            let y = 1;
+                            displayTable += '<tr>';
+                                for(val of valueValues){
+                                        displayTable += '<td>' + rowdata[y][1] + '</td>';
+                                        y++;
+                                    }
+                                displayTable += '<td><a target="_blank" href="edit.html?id='+row.id+'">Edit</a></td>' + 
+                                '<td><a target="_blank" href="delete.html?id='+row.id+'">Delete</a></td>' + 
+                                '</tr>';
+                        }
+                    }            
+                    
+                    displayTable += '</tbody></table>';
+                    target.innerHTML = displayTable;
+        }
+
+    const getAllValidators = ()=>{
+        const errorMessages = document.getElementsByClassName('error-message');
+            //console.log(errorMessages);
+            for (htmlElement of errorMessages) {
+                //console.log(htmlElement.id);
+                htmlElement.innerHTML = '&nbsp;';
+                htmlElement.style.opacity = 0;
+            }
+    } 
+
+    const unsuccessfulValidation = (banner, json)=>{
+        banner.innerText = 'Form has errors. Please correct them and resubmit.';
+        banner.style.opacity = 100;
+        for (error of json.errors) {
+            const errorId = error.param + '-error';
+            console.log(errorId);
+            document.getElementById(errorId).innerHTML = error.msg;
+            document.getElementById(errorId).hidden = false;
+        }
+    }
+
+    const serverMessedUp = (banner)=>{
+        banner.style.opacity = 100;
+        banner.innerText = 'The server had an error.';
+    }
+
+    const newDataStructure = (json)=>{
+        const tableStructs = [];
+        const names = Object.entries(json.data[0]);
+        console.log(names);
+        console.log(json);
+        console.log(json.data);
+        console.log(json.data[0]);
+        for(row of json.data){
+            tableStructs.push(row);
+            //testArray.push(row);
+        }
+        console.log(tableStructs);
+        return tableStructs;
+    }
+
+    const newForm = async (json)=>{
+        const data = Object.entries(json.data[0]); 
+        const prettyLabels = [];
+        const prettyValues = [];
+        const info = [];
+        for (x=1; x<data.length;x++){
+            prettyLabels.push(await newFormRow(data, x, json));
+            prettyValues.push(data[x][1])
+        }
+        console.log(data);
+        console.log(prettyLabels);
+        console.log(prettyValues);
+        //createTable(json, display, prettyLabels, prettyValues);
+      
+        const updateButtonRow = await newButtonRow('update');
+        document.body.appendChild(updateButtonRow);
+        document.getElementById('update').addEventListener('click', (event)=>{
+            updateDataBase('account');
+        });
+                 
+        document.body.appendChild(display);
+    }
+
+    const loadResponseHandlers = (status, json)=>{
+        const errorBanner = document.getElementById('error-banner');
+        
+        getAllValidators();
+        //Validation error
+        if(status === 400){
+            unsuccessfulValidation(errorBanner, json);
+        }
+        //Server error
+        else if(status === 500){
+            serverMessedUp(errorBanner);
+        }
+        else if(status === 200 ){
+            //newDataStructure(json);
+            
+            if(typeof json.structure === 'undefined'){
+                newForm(json);
+                testObject = json;
+            }
+            if(typeof json.structure !== 'undefined'){
+                getOptions(json);
+            }
+        }
+       
+        
+    }
+    
+    const putResponseHandlers = (status, json)=>{
+        const errorBanner = document.getElementById('error-banner');
+        
+        getAllValidators();
+        //Validation error
+        if(status === 400){
+            unsuccessfulValidation(errorBanner, json);
+        }
+        //Server error
+        else if(status === 500){
+            serverMessedUp(errorBanner);
+        }
+        else if(status === 200){
+            errorBanner.style.opacity = 100;
+            errorBanner.innerText = 'Succesfully Updated';
+            //console.log('updated!!!');
+        }
+    }
+
+        const newFormRow = async (tRow, column, json)=>{
+            const row = rowNode.cloneNode(true);
+            const col4 = divNode.cloneNode(true);
+                col4.setAttribute('class', 'col-sm-4');
+            const inputColumn = col4.cloneNode(true);
+                inputColumn.className += ' inputs';
+            const labelColumn = col4.cloneNode(true);
+                labelColumn.className += ' labels'
+            const validatorColumn = col4.cloneNode(true);
+                validatorColumn.setAttribute('hidden', 'true')
+                validatorColumn.className += ' error-message';
+            const name = tRow[column][0];
+            const words = name.split('_');
+            //console.log(words);
+            const trimmed = words.filter(word => !word.includes('id'));
+            //console.log(trimmed);
+            const labelArr = trimmed.map(word => word.replace(word.at(0), word.at(0).toUpperCase()));
+            //console.log(labelArr);
+            const labelString = labelArr.join(' ');
+            console.log(labelString);
+            const label = labelNode.cloneNode(true);
+                label.innerHTML = labelString;
+                labelColumn.appendChild(label.cloneNode(true));
+            const val = tRow[column][1];
+            console.log(val);
+            const foreignTable = trimmed.join('_').concat('s');
+                console.log(foreignTable);
+            if(name.includes('_id')){
+                console.log(name);
+                const input = selectNode.cloneNode(true);
+                    input.setAttribute('id', name);
+                    input.setAttribute('name', foreignTable);
+                    input.setAttribute('class', 'foreign-key form-input');
+                inputColumn.appendChild(input.cloneNode(true));
+                //console.log(inputColumn);
+                //informationWanted(foreignTable, 1);
+                //testArray.push(foreignTable);
+            }else{
+                const input = inputNode.cloneNode(true);
+                if(typeof val === 'number'){
+                    input.setAttribute('type', 'number');
+                }else{
+                    input.setAttribute('type', 'text');
+                }
+                input.setAttribute('id', name);
+                input.setAttribute('class', 'form-input');
+                inputColumn.appendChild(input.cloneNode(true));
+            }
+            validatorColumn.setAttribute('id', name + "-error");
+            row.appendChild(labelColumn.cloneNode(true));
+            row.appendChild(inputColumn.cloneNode(true));
+            row.appendChild(validatorColumn.cloneNode(true));
+            //console.log(row);
+            document.body.appendChild(row.cloneNode(true));
+            return labelString;
+        }
+        
+        const newButtonRow = (...type)=>{
+            const buttonRow = rowNode.cloneNode(true);
+                buttonRow.className += ' button-row';
+            const colAuto = divNode.cloneNode(true);
+                colAuto.setAttribute('class', 'col-auto');
+            const button = buttonN.cloneNode(true);
+                button.setAttribute('id', type);
+                button.setAttribute('class', 'col-auto form-button');
+                button.innerHTML = type.map(word => word.replace(word.at(0), word.at(0).toUpperCase()));
+            const buttonColumn = colAuto.cloneNode(true);
+                buttonColumn.appendChild(button.cloneNode(true));
+                buttonRow.appendChild(button.cloneNode(true));
+            return buttonRow.cloneNode(true);
+        }
+
+        const getOptions = async (json)=>{
+            
+                const optionsNode = document.createElement('option');
+                //await informationWanted(containers[i].name, 1);
+                const container = document.getElementsByClassName('foreign-key');
+                for(row of json.data){
+                    const literals = Object.keys(row);
+                    console.log(literals);
+                    const option = optionsNode.cloneNode(true);
+                    option.value = row[literals[0]];
+                    option.text = row[literals[1]];
+                    container[i].appendChild(option.cloneNode(true)); 
+                }
+            return;
+        } 
+        const populate = async (json) =>{
+            const data = Object.entries(json.data[0]);
+            for(entry of data){
+                if(!entry.includes('id')){
+                    console.log(entry);
+                    const element = await document.getElementById(entry[0])
+                    element.value = json.data[0][entry[0]];
+                }
+            }
+        }
+
+        //const informationWanted = async (table, isVerified, database) => {
+        
+            //const isVerified = 1;
+            //await fetch('http://localhost/object?table='+table+'&verified='+parseInt(isVerified)+'&database='+database, {method: 'GET'})
+        const informationWanted = async (table, database) => {
+            await fetch('http://localhost/'+table+'/'+queryParams.get('id')+'?database='+database, {method: 'GET'})
+            .then((response)=>{
+                return new Promise((resolve)=>{
+                    response.json().then((json) => resolve({status: response.status, json}))});
+            }).then(({status, json})=>{
+                loadResponseHandlers(status, json);
+            }).catch((error)=>{
+                console.error('Error:', error);
+            });
+        }
+        const structureWanted = async (table, database) => {
+            await fetch('http://localhost/structure/'+database+'/'+table, {method: 'GET'})
+                .then((response)=>{
+                    return new Promise((resolve)=>{
+                        response.json().then((json) => resolve({status: response.status, json}))});
+                }).then(({status, json})=>{
+                    loadResponseHandlers(status, json);
+                }).catch((error)=>{
+                    console.error('Error:', error);
+                });
+        }
+        const updateDataBase = async (table) => {
+            const formData = new FormData();
+            const formElements = document.getElementsByClassName('form-input');
+            for(element of formElements){
+                console.log(element);
+                formData.append(element.id, element.value);
+            }            
+            const getParameters = new URLSearchParams(window.location.search);
+
+            let fetchSettings = {
+                method: 'PUT',
+                body: formData
+            }
+            await fetch('http://localhost/'+table+'/'+getParameters.get('id'), fetchSettings)
+            .then((response)=>{
+                return new Promise((resolve)=>{
+                    response.json().then((json) => resolve({status: response.status, json}))});
+            }).then(({status, json})=>{
+                putResponseHandlers(status, json);
+            }).catch((error)=>{
+                console.error('Error:', error);
+            });
+        }
+        
+        const createForm = async (database_table_name, database_name) => {
+            await informationWanted(database_table_name, database_name);
+            const fTables = document.getElementsByClassName('foreign-key');
+            console.log(fTables);
+            for(i=0;i<fTables.length;i++){
+                console.log(i);
+                await structureWanted(fTables[i].name, database_name);
+            }   
+        }
+        
+        window.addEventListener('load', async (event)=>{
+           await createForm('account', 'jordan');
+            populate(testObject);
+        });
+        
+        
+
+        
+        
+        </script>
+
+    </body>
+</html>
